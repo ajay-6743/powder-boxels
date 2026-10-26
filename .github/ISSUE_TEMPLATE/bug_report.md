@@ -1,11 +1,6 @@
----
-name: Bug report
-about: Create a report to help us improve Powder Box
-title: "[BUG] "
-labels: bug
-assignees: ''
 
----
+Name: Bug report
+About: Create a report to help us improve Powder Box
 
 **Describe the bug**
 A clear and concise description of what the bug is.
