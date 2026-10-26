@@ -23,7 +23,3 @@ A high-performance, browser-based falling-sand simulation engine featuring **tho
 
 Since **Powder Box** is built using vanilla web technologies (HTML5, CSS3, and JavaScript) inside a single standalone file (`Powder_Box.html`), it requires **no build step or external dependencies**.
 
-### Running Locally
-1. Clone the repository:
-   ```bash
-   git clone [https://github.com/your-username/powder-box.git](https://github.com/your-username/powder-box.git)
