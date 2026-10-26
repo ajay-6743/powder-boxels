@@ -4,7 +4,7 @@
 
 
 **Is your feature request related to a problem? Please describe.**
-A clear and concise description of what the problem is. Ex. I'm always frustrated when [...]
+A clear and concise description of what the problem is. Ex. I'm always frustrated when security vulnerabilities in third-party packages or dependencies are discovered weeks after a release, requiring manual auditing of the dependency tree
 
 **Describe the solution you'd like**
 A clear and concise description of what you want to happen.
