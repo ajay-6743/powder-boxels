@@ -1,0 +1,21 @@
+🎮 How to Play
+Select an Element: Choose categories from the top tab bar (Powders, Liquids, Gases, Solids, Life, Food, Minerals, etc.) and pick an element from the bottom palette.
+
+Brush Controls: Adjust your brush size using the range slider. Use the Heat or Cold tools to manipulate temperatures directly.
+
+Actions:
+
+Left-click + drag on the canvas to paint elements.
+
+Use Pause to freeze simulation ticks while setting up complex experiments.
+
+Use Lookup to search every element's properties and interaction chart.
+
+Save and load your creations using the local storage slots (1, 2, 3).
+
+🛠️ Built With
+Vanilla JavaScript (ES6+)
+
+HTML5 Canvas (Pixel-manipulation rendering buffer via Uint32Array)
+
+CSS3 (Responsive design with automatic dark/light mode support)
