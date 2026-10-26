@@ -1,4 +1,4 @@
-[powder_box_contribution_guidelines.md](https://github.com/user-attachments/files/33975044/powder_box_contribution_guidelines.md)
+
 # Contributing to Powder Box
 
 Thank you for your interest in contributing to **Powder Box**! We welcome contributions of all kinds, from adding new chemical elements and physical reactions to improving performance, UI accessibility, or documentation.
