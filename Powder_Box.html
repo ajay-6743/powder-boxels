@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pixels Boxels</title>
+<style>
+:root{--bg:#f1f1f5;--pn:#fff;--ink:#1c1c24;--ln:#d5d5de;--ac:#e8590c;--cv:#0b0b10;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f0f14;--pn:#1a1a22;--ink:#ececf2;--ln:#2e2e3a;--ac:#ff8a3d}}
+:root[data-theme="dark"]{--bg:#0f0f14;--pn:#1a1a22;--ink:#ececf2;--ln:#2e2e3a;--ac:#ff8a3d}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font:13px/1.3 system-ui,-apple-system,"Segoe UI",sans-serif;display:flex;flex-direction:column;overflow:hidden;user-select:none;-webkit-user-select:none}
+[hidden]{display:none!important}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:8px 10px;background:var(--pn);border-bottom:1px solid var(--ln)}
+h1{font-size:15px;margin:0 auto 0 0}
+#st{color:var(--ac)}
+#tools,#tabs{display:flex;gap:6px}
+label{display:flex;align-items:center;gap:6px}
+button,select,input{font:inherit;color:var(--ink)}
+button,select{background:var(--pn);border:1px solid var(--ln);border-radius:8px;padding:5px 9px;cursor:pointer}
+button.on{outline:2px solid var(--ac);outline-offset:-1px}
+#wrap{flex:1;min-height:0;position:relative;background:var(--cv)}
+canvas{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated;touch-action:none;cursor:crosshair}
+#hint{position:absolute;inset:0;display:grid;place-items:center;color:#8d8d9c;pointer-events:none;text-align:center;padding:16px}
+#tabs{padding:6px 10px 0;background:var(--pn);border-top:1px solid var(--ln);overflow-x:auto}
+#tabs button{flex:none}
+#ps{padding:5px 8px;border:1px solid var(--ln);border-radius:8px;background:var(--bg);min-width:90px}
+#pal{display:flex;flex-wrap:wrap;gap:6px;padding:6px 10px 8px;max-height:104px;overflow:auto;background:var(--pn)}
+i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;border:1px solid #0004;flex:none}
+dialog{background:var(--pn);color:var(--ink);border:1px solid var(--ln);border-radius:12px;width:min(520px,92vw);max-height:80vh;padding:12px}
+dialog[open]{display:flex;flex-direction:column;gap:8px}
+#q{padding:7px 9px;border:1px solid var(--ln);border-radius:8px;background:var(--bg)}
+#ls{overflow:auto;max-height:52vh}
+.r{display:flex;align-items:flex-start;gap:4px;padding:6px 4px;border-bottom:1px solid var(--ln);cursor:pointer}
+.r i{margin-top:4px}
+.r small{display:block;opacity:.7}
+</style>
+</head>
+<body>
+<header><h1>Pixel Boxels</h1><span id="st"></span><span id="tools"></span>
+<label>Brush <input id="br" type="range" min="1" max="12" value="4"></label>
+<button id="pz">Pause</button><button id="cl">Clear</button>
+<select id="sl"><option>1</option><option>2</option><option>3</option></select><button id="sv">Save</button><button id="ld">Load</button>
+<button id="lu">Lookup</button></header>
+<div id="wrap"><canvas id="cv"></canvas><div id="hint">Pick a category and an element below. Heat and Cold change temperature.<br>Life walks, swims and flies. Lookup searches every element and its reactions.</div></div>
+<div id="tabs"></div><div id="pal"></div>
+<dialog id="lk"><input id="q" placeholder="Search elements" autocomplete="off"><div id="ls"></div><button id="xx">Close</button></dialog>
+<script>
+const $=id=>document.getElementById(id),rnd=Math.random;
+// name|color|kind (1 powder, 2 liquid, 3 gas, 4 solid)|density|options
+// T start temp, K held temp, h/c above/below temp becomes, i ignition temp, b burn time, x blast radius, L lifetime, f flow, s spawns, C clone, V void, P grows, A acid, r resistant
+const SRC=`Sand|e6c86e|1|6|h1700>Molten_Glass
+Dirt|7a5230|1|5.5
+Snow|f1f6ff|1|2.5|T-5 h1>Water
+Gunpowder|55555e|1|5.2|i250 b8
+Ash|9a9a9a|1|2.2
+Salt|f2f2f2|1|5.8
+Gravel|7d7d82|1|6.2
+Coal|2b2b30|1|5.6|i380 b90
+Sugar|fff3f3|1|5.4|h180>Caramel
+Flour|f3ead3|1|2.8|i300 b12
+Mud|4e3320|1|5.6
+Clay|b5654a|1|5.7|h900>Brick
+Rust|a8461f|1|5.5
+Sawdust|d2b074|1|2.4|i280 b30
+Seed|8bb255|1|4
+Thermite|9a5a3a|1|5.5|i450>Molten_Iron
+Dry Ice|dff7ff|1|4|T-78 h-60>CO2
+Cement|a9a9a0|1|5.6
+Glitter|ff6ad5|1|5
+Baking Soda|f8f8f2|1|5.3
+Sodium|b8c4d6|1|5.5
+Sulfur|e8d83a|1|5.5|i260 b20
+Ember|ff5a2a|1|5|T700 L120>Ash
+Uranium|5aff3a|1|8|K180
+Water|2f7bff|2|3|h100>Steam c0>Ice
+Salt Water|3d8bff|2|3.1|h102>Steam c-5>Ice
+Oil|7a521c|2|2|i250 b30
+Acid|8dff3c|2|3.1|A
+Lava|ff5a14|2|8|T1300 c800>Stone f.3
+Alcohol|d6f0ff|2|2.1|i365 b20
+Gasoline|d9c24a|2|1.9|i240 b25
+Honey|e5a300|2|4|f1
+Milk|f6f6ee|2|3.05
+Blood|a10f1f|2|3.2
+Slime|7bd44a|2|3.5|f.3
+Mercury|c9ced6|2|13.5
+Liquid Nitrogen|bfe3ff|2|2.6|T-196 h-150>Nitrogen
+Molten Glass|ffb066|2|7|T1700 c1000>Glass f.4
+Molten Iron|ff8a3c|2|9|T1800 c1500>Iron f.4
+Molten Gold|ffd23f|2|9.5|T1300 c1000>Gold f.4
+Molten Copper|ff7a45|2|9|T1350 c1050>Copper f.4
+Molten Aluminum|f0c0a0|2|7.5|T900 c650>Aluminum f.5
+Vinegar|e8e0b0|2|3.05
+Ink|1a1a3a|2|3.1
+Soda|7a3a1a|2|3.05
+Napalm|ff9d3a|2|2.4|i220 b60 f.4
+Nitro|c8ff7a|2|3.3|i120 x5
+Tar|1c1410|2|4|i300 b50 f.2
+Molten Wax|f3e3a8|2|2.6|T80 c50>Wax f.6
+Caramel|a8541a|2|4.2|T200 c120>Sugar f.3
+Molten Plastic|c0d0e0|2|4|T200 c100>Plastic f.4
+Stone|8a8a92|4||h1200>Lava
+Wall|5a5a68|4||r
+Wood|9a6a34|4||i300 b70
+Plant|2fb34a|4||i300 b35 P
+Ice|a9e4ff|4||T-10 h2>Water
+Glass|bfe9e4|4||h1500>Molten_Glass r
+TNT|d63030|4||i180 x8
+Iron|8c8f99|4||h1538>Molten_Iron
+Gold|ffd23f|4||h1064>Molten_Gold r
+Copper|c46a3a|4||h1085>Molten_Copper
+Aluminum|c9ced6|4||h660>Molten_Aluminum
+Steel|6d7280|4||h1450>Molten_Iron
+Brick|a8452f|4
+Concrete|9a9a98|4
+Wax|f3e3a8|4||i230 b25 h60>Molten_Wax
+Rubber|2f2f36|4||i350 b50
+Plastic|9fc0d8|4||h110>Molten_Plastic
+Obsidian|2a1f3a|4||h1250>Lava r
+Diamond|9ef0ff|4||r
+Paper|f1ecd6|4||i230 b25
+Cloth|c2a0e0|4||i250 b30
+Cotton|fff8f0|4||i240 b20
+Fuse|8a7a50|4||i200 b45
+Grass|3fc34a|4||i300 b30 P
+Vine|2a9a3a|4||i300 b30 P
+Moss|5a8a3a|4||P
+Mushroom|d9c7b0|4
+Flower|ff6a9a|4||i300 b20
+Cactus|3a8a4a|4||i320 b30
+Leaf|5fbf3a|4||i260 b20
+Bamboo|a8c050|4||i300 b40
+Coral|ff7a8a|4
+Sponge|e8d048|4
+Lead|5a5f6b|4
+Silver|d6dae0|4
+Dynamite|b02a2a|4||i180 x6
+C4|e8e0c8|4||i250 x10
+Nuke|3ad63a|4||i200 x18
+Heater|ff7a3a|4||K500 r
+Freezer|7ad0ff|4||K-100 r
+Water Source|4a8cff|4||s>Water r
+Lava Source|ff7a30|4||s>Lava r
+Oil Source|8a5a20|4||s>Oil r
+Sand Source|e6c86e|4||s>Sand r
+Acid Source|8dff3c|4||s>Acid r
+Fire Source|ff9a1f|4||s>Fire r
+Cloner|e0e040|4||C r
+Void|7a3cff|4||V r
+Fire|ff9a1f|3|.1|K650 L40>Smoke
+Smoke|6e6e78|3|.1|L110
+Steam|cfd8e3|3|.05|T120 c80>Water
+Gas|c58cff|3|.08|i500 b8
+Hydrogen|9bd0ff|3|.03|i500 x3
+Helium|ffd0f0|3|.02
+Oxygen|9ad8ff|3|1.05
+Nitrogen|c0c8e0|3|.95
+CO2|8a98a8|3|1.5
+Chlorine|c8e86a|3|2.6
+Propane|ffb0b0|3|1.6|i480 b8
+Neon|ff7ad6|3|.04
+Ammonia|d4e8a8|3|.55
+Cloud|e9eef5|3|.04|L250>Water
+Plasma|d8a0ff|3|.05|K1500 L25>Fire
+Bleach|f4f7c8|2|3.1
+Fertilizer|8a6a3a|1|5|i300 b15`;
+const RXS=`Water+Salt>Salt Water+ .3
+Dirt+Water>Mud+ .08
+Cement+Water>Concrete+ .1
+Fire+Water>+Steam 1
+Lava+Water>Stone+Steam 1
+Iron+Water>Rust+Water .003
+Iron+Salt Water>Rust+Salt Water .02
+Sodium+Water>Fire+Hydrogen 1
+Seed+Water>Plant+Plant .1
+Seed+Mud>Plant+Mud .08
+Soda+Salt>CO2+CO2 .4
+Vinegar+Baking Soda>CO2+Water .5
+Sponge+Water>Sponge+ .3
+Lava+Sand>Lava+Glass .03
+Ember+Water>Ash+Steam .5
+Oxygen+Fire>Fire+Fire .4
+CO2+Fire>CO2+ .5
+Nitrogen+Fire>Nitrogen+ .5
+Sand+Fire>Sand+ .1
+Dirt+Fire>Dirt+ .05
+Gunpowder+Water>Mud+ .1
+Gunpowder+Salt Water>Mud+ .1
+Salt+Ice>Salt Water+Water .15
+Salt+Snow>Salt Water+Water .2
+Salt+Slime>Salt+ .15
+Clay+Water>Mud+ .05
+Dirt+Salt Water>Mud+ .05
+Cement+Salt Water>Concrete+ .05
+Steel+Salt Water>Rust+Salt Water .004
+Mercury+Aluminum>Mercury+Ash .1
+Acid+Aluminum>Hydrogen+ .2
+Acid+Iron>Hydrogen+Rust .1
+Acid+Baking Soda>CO2+CO2 .5
+Acid+Ammonia>Salt+Water .3
+Sodium+Ice>Fire+Hydrogen .5
+Sodium+Snow>Fire+Hydrogen .5
+Sodium+Salt Water>Fire+Hydrogen 1
+Chlorine+Sodium>Salt+Salt .8
+Chlorine+Plant>Chlorine+Ash .08
+Chlorine+Grass>Chlorine+Ash .08
+Chlorine+Vine>Chlorine+Ash .08
+Chlorine+Flower>Chlorine+Ash .08
+Chlorine+Leaf>Chlorine+Ash .08
+Chlorine+Ammonia>Smoke+Smoke .3
+Hydrogen+Chlorine>Acid+Acid .2
+Milk+Vinegar>Slime+Slime .3
+Ink+Water>Ink+Ink .01
+Ink+Salt Water>Ink+Ink .01
+Alcohol+Water>Water+Water .03
+Sponge+Salt Water>Sponge+ .3
+Sponge+Oil>Sponge+ .2
+Sponge+Blood>Sponge+ .2
+Grass+Dirt>Grass+Grass .006
+Seed+Dirt>Grass+Dirt .004
+Mushroom+Mud>Mushroom+Mushroom .01
+Dry Ice+Water>CO2+Cloud .15
+Plant+Fertilizer>Plant+Plant .04
+Grass+Fertilizer>Grass+Grass .04
+Vine+Fertilizer>Vine+Vine .04
+Bleach+Ink>Bleach+Water .1
+Bleach+Blood>Bleach+Water .1
+Bleach+Ammonia>Chlorine+Chlorine .3
+Bleach+Vinegar>Chlorine+Chlorine .3`;
+// ===== generated content: periodic table, compounds, organics, alloys, minerals, life, food, special =====
+const SL=SRC.split('\n'),have=new Set(SL.map(l=>l.split('|')[0])),GN=[],K=8192;
+const U=s=>s.replace(/ /g,'_'),
+ rgb=h=>(h.length<6?[...h].map(c=>c+c).join(''):h).match(/../g).map(s=>parseInt(s,16)),
+ mx=(a,b,f)=>{const p=rgb(a),q=rgb(b);return p.map((v,k)=>Math.round(v+(q[k]-v)*f).toString(16).padStart(2,'0')).join('')},
+ hs=s=>{let h=7;for(let i=0;i<s.length;i++)h=Math.imul(h,31)+s.charCodeAt(i)|0;return h>>>0},
+ hc=s=>[0,8,16].map(k=>(90+((hs(s)>>k)&255)%110).toString(16)).join(''),
+ add=(n,c,k,d,o,cat)=>{if(have.has(n))return;have.add(n);GN.push([n,c.length<6?[...c].map(x=>x+x).join(''):c,k,d,o||'',cat].join('|'))},
+ patch=(n,o)=>{const i=SL.findIndex(l=>l.startsWith(n+'|'));if(i<0)return;const f=SL[i].split('|');while(f.length<5)f.push('');f[4]=(f[4]+' '+o).trim();SL[i]=f.join('|')},
+ lacks=(n,re)=>{const l=SL.find(l=>l.startsWith(n+'|'));return l&&!re.test(l.split('|')[4]||'')},
+ SN=(n,an)=>n==='Sodium'&&an==='Chloride'?'Salt':n+' '+an,
+ kv=(s,f)=>s.split(' ').forEach(t=>{const i=t.indexOf(':');f(t.slice(0,i),t.slice(i+1))});
+const CAT=(n,k)=>/ Source$|^(Heater|Freezer|Cloner|Void|Nuke|C4|TNT|Dynamite|Thermite|Nitro|Napalm|Uranium|Plasma)$/.test(n)?'Special':/^(Seed|Plant|Grass|Vine|Moss|Mushroom|Flower|Cactus|Leaf|Bamboo|Coral|Sponge|Blood|Slime|Fertilizer)$/.test(n)?'Life':['','Powders','Liquids','Gases','Solids'][k];
+
+// --- periodic table with real melting/boiling points (C) and densities
+const PT=`H Hydrogen -259 -253 .09;He Helium -272 -269 .18;Li Lithium 181 1342 .53;Be Beryllium 1287 2470 1.85;B Boron 2076 3927 2.34;C Carbon 3550 4027 2.2;N Nitrogen -210 -196 1.25;O Oxygen -219 -183 1.43;F Fluorine -220 -188 1.7;Ne Neon -249 -246 .9;Na Sodium 98 883 .97;Mg Magnesium 650 1090 1.74;Al Aluminum 660 2519 2.7;Si Silicon 1414 3265 2.33;P Phosphorus 44 277 1.82;S Sulfur 115 445 2.07;Cl Chlorine -102 -34 3.2;Ar Argon -189 -186 1.78;K Potassium 63 759 .86;Ca Calcium 842 1484 1.55;Sc Scandium 1541 2836 2.99;Ti Titanium 1668 3287 4.5;V Vanadium 1910 3407 6.1;Cr Chromium 1907 2671 7.15;Mn Manganese 1246 2061 7.3;Fe Iron 1538 2862 7.87;Co Cobalt 1495 2927 8.9;Ni Nickel 1455 2913 8.9;Cu Copper 1085 2562 8.96;Zn Zinc 420 907 7.14;Ga Gallium 30 2204 5.9;Ge Germanium 938 2833 5.32;As Arsenic 817 615 5.7;Se Selenium 221 685 4.8;Br Bromine -7 59 3.1;Kr Krypton -157 -153 3.7;Rb Rubidium 39 688 1.53;Sr Strontium 777 1382 2.64;Y Yttrium 1526 3345 4.47;Zr Zirconium 1855 4409 6.5;Nb Niobium 2477 4744 8.57;Mo Molybdenum 2623 4639 10.2;Tc Technetium 2157 4265 11;Ru Ruthenium 2334 4150 12.4;Rh Rhodium 1964 3695 12.4;Pd Palladium 1555 2963 12;Ag Silver 962 2162 10.5;Cd Cadmium 321 767 8.65;In Indium 157 2072 7.3;Sn Tin 232 2602 7.3;Sb Antimony 631 1587 6.7;Te Tellurium 450 988 6.2;I Iodine 114 184 4.9;Xe Xenon -112 -108 5.9;Cs Cesium 28 671 1.9;Ba Barium 727 1897 3.5;La Lanthanum 920 3464 6.15;Ce Cerium 795 3443 6.77;Pr Praseodymium 935 3520 6.77;Nd Neodymium 1024 3074 7;Pm Promethium 1042 3000 7.26;Sm Samarium 1072 1794 7.5;Eu Europium 826 1529 5.24;Gd Gadolinium 1312 3273 7.9;Tb Terbium 1356 3230 8.2;Dy Dysprosium 1407 2567 8.55;Ho Holmium 1461 2720 8.8;Er Erbium 1529 2868 9.07;Tm Thulium 1545 1950 9.3;Yb Ytterbium 824 1196 6.9;Lu Lutetium 1652 3402 9.8;Hf Hafnium 2233 4603 13.3;Ta Tantalum 3017 5458 16.7;W Tungsten 3422 5555 19.3;Re Rhenium 3186 5596 21;Os Osmium 3033 5012 22.6;Ir Iridium 2446 4428 22.6;Pt Platinum 1768 3825 21.5;Au Gold 1064 2856 19.3;Hg Mercury -39 357 13.5;Tl Thallium 304 1473 11.9;Pb Lead 327 1749 11.3;Bi Bismuth 271 1564 9.8;Po Polonium 254 962 9.2;At Astatine 302 337 7;Rn Radon -71 -62 9.7;Fr Francium 27 677 1.9;Ra Radium 700 1737 5;Ac Actinium 1050 3200 10;Th Thorium 1750 4788 11.7;Pa Protactinium 1572 4000 15.4;U Uranium 1135 4131 19;Np Neptunium 644 3900 20;Pu Plutonium 640 3228 19.8;Am Americium 1176 2607 12;Cm Curium 1345 3110 13.5;Bk Berkelium 986 2627 14;Cf Californium 900 1470 15;Es Einsteinium 860 996 8.8;Fm Fermium 1527 3000 9.7;Md Mendelevium 827 3000 10;No Nobelium 827 3000 10;Lr Lawrencium 1627 3000 10;Rf Rutherfordium 2100 5500 17;Db Dubnium 2400 5500 21;Sg Seaborgium 2500 5500 23;Bh Bohrium 2500 5500 27;Hs Hassium 2500 5500 29;Mt Meitnerium 2500 5500 28;Ds Darmstadtium 2500 5500 27;Rg Roentgenium 1500 5000 22;Cn Copernicium 10 67 14;Nh Nihonium 430 1100 16;Fl Flerovium 70 150 11;Mc Moscovium 400 1100 13;Lv Livermorium 440 1100 12;Ts Tennessine 450 610 7;Og Oganesson 50 80 5`;
+const NM=new Set('H He B C N O F Ne Si P S Cl Ar As Se Br Kr Te I Xe At Rn Og'.split(' ')),PW=new Set('B C Si P S As Se Te I At'.split(' ')),
+ RAD=new Set('Tc Pm Po At Rn Fr Ra Ac Th Pa U Np Pu Am Cm Bk Cf Es Fm Md No Lr Rf Db Sg Bh Hs Mt Ds Rg Cn Nh Fl Mc Lv Ts Og'.split(' ')),
+ REA=new Set('Li Be Mg Al Ca Ti Fe Zn Zr Ce La Nd U Th Mn Cr Sr Ba K Rb Cs Na'.split(' ')),CO={},EL={};
+kv('H:9bd0ff He:ffd0f0 Li:c8c8d0 Be:a0a8a0 B:3a2a1a C:2e2e34 N:c0c8e0 O:9ad8ff F:d8f0a0 Ne:ff7ad6 Mg:d0d4d8 Si:5a5f6a P:e8e0a0 Cl:c8e86a Ar:d8b0ff K:c8ccd8 Ca:e6e6dc Ti:a0a4ad Cr:c0c8d0 Mn:9a8aa0 Co:6a7aa8 Ni:b8bcc0 Zn:a8b4c0 Ga:b0c0d0 Ge:8a8e96 As:6a6a6a Se:a03030 Br:a82a1a Kr:e0d0ff Rb:d0d0d8 Cs:e8c878 Sn:c4c8cc I:4a2a5a Xe:c0a0ff W:7a7f88 Pt:d8dce0 Bi:d0a0b0 Rn:ffe0b0 Cd:b0b8c8 Ir:d0d4d8 Os:7a8ab0 Pd:c8ccd0 Cu:c46a3a Au:ffd23f Ag:d6dae0 Fe:8c8f99 Al:c9ced6 Pb:5a5f6b Hg:c9ced6 Na:b8c4d6 S:e8d83a U:5aff3a',(k,v)=>CO[k]=v);
+PT.split(';').forEach((s,z)=>{
+  const[q,n,m,b,r]=s.split(' '),mp=+m,bp=+b,rho=+r,nm=NM.has(q),gas=bp<20,liq=!gas&&mp<20,rad=RAD.has(q);
+  const c=CO[q]||(nm?(gas?mx('cfe0ff',hc(n),.2):'c8c0a8'):mx('aab0b8',hc(n),.12));
+  EL[q]={n,mp,bp,rho,c};
+  const S=gas?'Solid '+n:liq?'Frozen '+n:n,Lq=gas?'Liquid '+n:liq?n:'Molten '+n,Gs=gas?n:n+' Vapor';
+  const dk=rad?` d${z>=103?.01:'Po At Rn Fr'.includes(q)?.002:.0001}>${U(z>=83?'Lead':q==='Tc'?'Ruthenium':'Samarium')}`:'';
+  const preS=have.has(S),preL=have.has(Lq),preG=have.has(Gs),base=gas?Gs:liq?Lq:S;
+  add(S,gas||liq?mx(c,'e8f4ff',.5):c,PW.has(q)?1:4,PW.has(q)?+Math.min(9,4+rho*.3).toFixed(1):'',(gas||liq?`T${mp-10} `:'')+`h${mp}>${U(Lq)}`+(base===S?dk:''),'Elements');
+  add(Lq,gas?mx(c,'bfe3ff',.5):liq?c:mx(c,'ff8a2a',.55),2,+Math.min(20,1.8+1.2*(gas?.9:rho*.9)).toFixed(1),(liq?'':`T${Math.round(mp+Math.min(150,(bp-mp)/4))} `)+`h${bp}>${U(Gs)} c${mp}>${U(S)}`+(gas||liq?'':' f.4')+(base===Lq?dk:''),'Elements');
+  add(Gs,gas?c:mx(c,'ffffff',.5),3,gas?+(rho/1.36).toFixed(2):.5,(gas?'':`T${bp+30} `)+`c${bp}>${U(Lq)}`+(base===Gs?dk:''),'Elements');
+  if(preS){if(lacks(S,/(^| )h-?\d/))patch(S,`h${mp}>${U(Lq)}`);if(rad)patch(S,dk.trim())}
+  if(preL){if(lacks(Lq,/(^| )h-?\d/))patch(Lq,`h${bp}>${U(Gs)}`);if(liq&&lacks(Lq,/(^| )c-?\d/))patch(Lq,`c${mp}>${U(S)}`)}
+  if(preG&&lacks(Gs,/(^| )c-?\d/))patch(Gs,`c${bp}>${U(Lq)}`);
+  if(!nm&&!gas&&!liq&&!have.has(n+' Powder'))add(n+' Powder',mx(c,'303030',.12),1,+Math.min(9,4+rho*.25).toFixed(1),`h${mp}>${U(Lq)}`+(REA.has(q)?' i550 b18':''),'Elements');
+});
+
+// --- inorganic salts with thermal decomposition (oxides, hydroxides, carbonates, nitrates...)
+const MT=[];'Li8 Be5 Na9 Mg6 Al5 K9 Ca7 Sc5 Ti3 V3 Cr3 Mn4 Fe3 Co3 Ni3 Cu1 Zn4 Ga3 Rb9 Sr8 Y5 Zr3 Nb2 Mo2 Ag1 Cd3 In3 Sn3 Sb2 Cs9 Ba8 La6 Ce6 Pr6 Nd6 Sm6 Eu6 Gd5 Tb5 Dy5 Ho5 Er5 Tm5 Yb5 Lu5 Hf3 Ta2 W2 Re1 Os1 Ir0 Pt0 Au0 Hg1 Tl3 Pb2 Bi2 Th5 U4 Pu4 Ra8 Pd0 Rh0 Ru0'.split(' ').forEach(s=>{const q=s.slice(0,-1);MT.push([EL[q].n,+s.slice(-1),EL[q].c])});
+// [anion, tint, 0 melts | 1 decomposes, low temp, high temp, decomposition product]
+const AN=[['Oxide','888',0,1200,2800],['Peroxide','f0f0e0',1,150,500],['Hydroxide','e8e8e8',1,100,600],['Chloride','eee',0,250,900],['Fluoride','f4f4f4',0,400,1400],['Bromide','e8e4d8',0,250,800],['Iodide','e8e0a0',0,250,700],['Sulfide','3a3a3a',0,600,1800],['Sulfate','e8e8e8',1,600,1300],['Sulfite','e8e8e4',1,200,600],['Nitrate','f0f0f8',1,150,600],['Nitrite','f0f0d8',1,120,400],['Nitride','4a4a52',0,1200,2800],['Carbonate','e8e8e0',1,300,1300],['Carbide','4a4a4a',0,1500,2800],['Phosphate','e0e0d8',0,900,1700],['Silicate','c8c8c0',0,1100,1700],['Acetate','f0ecd8',1,150,350],['Chlorate','f0f0f0',1,150,400,'Chloride'],['Hydride','a8a8b0',1,200,700,''],['Chromate','e8c020',1,300,900],['Perchlorate','f4f4f4',1,250,500,'Chloride'],['Oxalate','f0f0f0',1,150,500],['Borate','f0f0f4',0,700,1100]];
+AN.forEach(([an,tn,md,lo,hi,ds])=>MT.forEach(([n,b,c])=>{
+  const nm=SN(n,an);if(nm==='Salt')return;
+  const f=b>6?.08:b>4?.25:.5,col=mx(mx(tn,c,f),hc(nm),.05),T_=Math.round(lo+(hi-lo)*b/9);
+  if(md)add(nm,col,1,5,`h${T_}>${U(ds===''?n:SN(n,ds||'Oxide'))}`,'Salts');
+  else{add(nm,col,1,5,`h${T_}>${U('Molten '+nm)}`,'Salts');add('Molten '+nm,mx(col,'ff8a2a',.55),2,+(3.5+b*.2).toFixed(1),`T${T_+80} c${T_}>${U(nm)} f.4`,'Salts')}
+}));
+
+// --- organic chemistry: 13 homologous families, C1 to C30, boiling points follow real trends
+const ST='Meth Eth Prop But Pent Hex Hept Oct Non Dec Undec Dodec Tridec Tetradec Pentadec Hexadec Heptadec Octadec Nonadec Eicos Heneicos Docos Tricos Tetracos Pentacos Hexacos Heptacos Octacos Nonacos Triacont'.split(' ');
+const abp=n=>n<5?[-162,-89,-42,-1][n-1]:Math.round(199*Math.log(n)-284),amp=n=>n<5?[-182,-183,-188,-138][n-1]:Math.round(97*Math.log(n)-253),L5=(a,n,f)=>n<=a.length?a[n-1]:abp(n)+f(n);
+const FM=[[s=>s+'ane','c8c8a0',abp,0,1],[s=>s+'ene','b8d0a8',n=>abp(n)-5,-5,2],[s=>s+'yne','a8b8d8',n=>abp(n)+8,0,2],[s=>s+'anol','d0e8f8',n=>L5([65,78,97,118,138],n,n=>530/n),10,1],[s=>s+'anoic Acid','f0f0c8',n=>L5([101,118,141,164,186],n,n=>950/n),55,1],[s=>s+'anal','f0d8c0',n=>L5([-19,20,49],n,n=>330/n),-5,1],[s=>s+'anone','e0e8d0',n=>abp(n)+330/n+3,-5,3],[s=>s+'ylamine','d8c8e8',n=>L5([-6,17],n,n=>350/n),0,1],[s=>s+'anethiol','e8e098',n=>abp(n)+60+150/n,0,1],[s=>'Chloro'+s.toLowerCase()+'ane','c8e8c8',n=>abp(n)+60+80/n,0,1],[s=>'Bromo'+s.toLowerCase()+'ane','e8c8a8',n=>abp(n)+78+88/n,5,1],[s=>s+'anenitrile','d0d0e8',n=>abp(n)+60+220/n,20,2],[s=>s+'yl Acetate','f0e8e0',n=>n<11?57+22*(n-1):abp(n)+70,-10,1]];
+FM.forEach(([nf,col,bf,mo,mn])=>{for(let n=mn;n<=30;n++){
+  const nm=nf(ST[n-1]),bp=Math.round(bf(n)),mp=Math.min(Math.round(amp(n)+mo),bp-30),c=mx(col,hc(nm),.06),ig=n<5?[537,472,470,405][n-1]:Math.max(200,Math.round(320-n*12)),fl=`i${ig} b${10+n}`;
+  if(bp<20)add(nm,c,3,+((12*n+2)/30).toFixed(2),fl,'Organic');
+  else if(mp>20){add(nm,c,1,3.2,`h${mp}>${U('Molten '+nm)} ${fl}`,'Organic');add('Molten '+nm,mx(c,'ffd080',.3),2,2.7,`T${mp+30} c${mp}>${U(nm)} ${fl} f.5`,'Organic')}
+  else{add(nm,c,2,2.7,`h${bp}>${U(nm+' Vapor')} ${fl}`,'Organic');add(nm+' Vapor',mx(c,'fff',.5),3,+Math.min(3,(12*n+2)/30).toFixed(2),`T${bp+30} c${bp}>${U(nm)} ${fl}`,'Organic')}
+}});
+
+// --- alloys: every pair of 26 industrial metals plus named alloys
+const AM='Fe Cu Zn Sn Pb Al Ni Cr Mn Mg Ti Ag Au Co W Mo V Bi Cd Sb Pt Pd Zr Nb Ga In'.split(' ');
+AM.forEach((p,i)=>AM.slice(i+1).forEach(q=>{const A=EL[p],B=EL[q],nm=A.n+'-'+B.n+' Alloy',mp=Math.round((A.mp+B.mp)/2*.85),c=mx(A.c,B.c,.5);
+  add(nm,c,4,'',`h${mp}>${U('Molten '+nm)}`,'Alloys');add('Molten '+nm,mx(c,'ff8a2a',.55),2,+Math.min(20,1.8+1.08*(A.rho+B.rho)/2).toFixed(1),`T${mp+80} c${mp}>${U(nm)} f.4`,'Alloys')}));
+'Brass 930 c9a74a;Bronze 950 b0793a;Stainless Steel 1450 c0c4c8;Solder 190 b8bcc0;Pewter 230 a0a4a8;Nichrome 1400 9aa0a8;Invar 1427 8a9098;Duralumin 640 b4bac2;Electrum 1000 e8d070;Constantan 1260 b87a50;Monel 1350 a0a8b0;Inconel 1390 8a9298;Babbitt 250 a0a0a0;Gunmetal 1000 9a6a3a;Cast Iron 1200 5a5a62;Wrought Iron 1500 7a7e86;Ferrosilicon 1250 7a7e8a;Alnico 1400 6a6e76;Nitinol 1310 9aa0a8;Woods Metal 70 a8aab0;Galinstan -19 c8ccd2;Rose Gold 960 e0a090;White Gold 1000 e8e8e0;Sterling Silver 893 d8dce0;Pot Metal 400 888888;Type Metal 280 7a7e86;Cupronickel 1170 c0a890;Zamak 390 a0a4aa;Magnalium 600 c0c4c8;Tungsten Carbide 2870 5a5a64'.split(';').forEach(s=>{const t=s.split(' '),mp=+t[t.length-2],c=t[t.length-1],nm=t.slice(0,-2).join(' ');
+  add(nm,c,4,'',`h${mp}>${U('Molten '+nm)}`,'Alloys');add('Molten '+nm,mx(c,'ff8a2a',.55),2,9,`T${mp+80} c${mp}>${U(nm)} f.4`,'Alloys')});
+
+// --- minerals, gems and rocks
+const GC={};kv('Ruby:c81830 Sapphire:2a4ac8 Emerald:2ab060 Amethyst:9a5ac8 Citrine:e8b030 Topaz:f0b040 Turquoise:3ac8b8 Jade:5ab07a Opal:e8f0f0 Garnet:8a1a2a Onyx:1a1a1e Lapis_Lazuli:2a3a9a Malachite:1a9a5a Azurite:2a4a9a Pyrite:d8c050 Galena:7a7e86 Cinnabar:c8301a Fluorite:8a5ac8 Calcite:f0ece0 Quartz:ece8e8 Rose_Quartz:f0b8c8 Smoky_Quartz:8a7a6a Peridot:a0c840 Aquamarine:8ad8e8 Moonstone:d8e0f0 Tanzanite:5a4ac8 Hematite:6a3a3a Magnetite:2a2a30 Bauxite:b07050 Amber:e8a020 Jet:101012 Realgar:e85a2a Orpiment:e8c020 Granite:b8a8a0 Marble:f0eeea Limestone:d8d4c0 Sandstone:d0a070 Basalt:3a3a42 Pumice:c8c4bc Slate:4a5058 Gypsum:f0f0e8 Halite:f0e8e8 Chalk:f4f4f0 Anthracite:1a1a20 Peat:4a3a2a',(k,v)=>GC[k]=v);
+`Quartz Amethyst Citrine Agate Jasper Chalcedony Flint Chert Opal Onyx Feldspar Orthoclase Microcline Albite Anorthite Labradorite Moonstone Mica Muscovite Biotite Phlogopite Lepidolite Talc Chlorite Serpentine Kaolinite Montmorillonite Illite Vermiculite Pyrophyllite Hornblende Actinolite Tremolite Augite Diopside Hedenbergite Enstatite Pyroxene Olivine Peridot Forsterite Fayalite Garnet Almandine Pyrope Spessartine Grossular Andradite Uvarovite Zircon Topaz Beryl Emerald Aquamarine Morganite Tourmaline Schorl Spinel Corundum Ruby Sapphire Emery Magnetite Hematite Ilmenite Rutile Chromite Cassiterite Pyrolusite Goethite Limonite Siderite Bauxite Gibbsite Boehmite Diaspore Calcite Aragonite Dolomite Magnesite Rhodochrosite Smithsonite Cerussite Malachite Azurite Gypsum Anhydrite Alabaster Selenite Barite Celestine Anglesite Fluorite Halite Sylvite Carnallite Cryolite Apatite Turquoise Monazite Xenotime Pyrite Marcasite Chalcopyrite Bornite Chalcocite Covellite Galena Sphalerite Cinnabar Stibnite Molybdenite Arsenopyrite Realgar Orpiment Pentlandite Pyrrhotite Millerite Cobaltite Argentite Acanthite Bismuthinite Tetrahedrite Wolframite Scheelite Uraninite Carnotite Autunite Torbernite Thorite Zeolite Natrolite Stilbite Analcime Chabazite Nepheline Sodalite Lazurite Lapis_Lazuli Cancrinite Scapolite Epidote Zoisite Tanzanite Vesuvianite Kyanite Sillimanite Andalusite Staurolite Cordierite Axinite Prehnite Datolite Wollastonite Rhodonite Jade Jadeite Nephrite Amber Jet Pumice Basalt Granite Gabbro Diorite Andesite Rhyolite Tuff Scoria Marble Limestone Sandstone Shale Slate Schist Gneiss Quartzite Chalk Travertine Dolostone Conglomerate Breccia Siltstone Mudstone Coquina Diatomite Peat Lignite Anthracite Bituminous_Coal Tektite Meteorite Pallasite Moldavite Fulgurite Geode Bloodstone Carnelian Sardonyx Tiger's_Eye Aventurine Rose_Quartz Smoky_Quartz Milky_Quartz Rock_Crystal Ametrine Prasiolite Chrysoprase Chrysocolla Dioptase Hemimorphite Wulfenite Vanadinite Mimetite Pyromorphite Crocoite Variscite`.split(/\s+/).forEach(t=>{
+  const n=t.replace(/_/g,' '),h=hs(n),c=GC[t]||[0,8,16].map(k=>(100+((h>>k)&255)%100).toString(16)).join('');
+  const soft=/^(Chalk|Talc|Kaolinite|Diatomite|Peat|Mudstone|Siltstone|Shale|Tuff|Scoria|Pumice|Illite|Montmorillonite|Vermiculite)$/.test(n),cal=/^(Limestone|Marble|Chalk|Calcite|Travertine|Coquina|Aragonite)$/.test(n),fuel=/Amber|Jet|Peat|Lignite|Anthracite|Coal/.test(n);
+  add(n,c,soft?1:4,soft?5:'',(cal?'h825>Calcium_Oxide':`h${1100+h%700}>Lava`)+(fuel?' i350 b120':''),'Minerals')});
+
+// --- life: creatures walk (w1), swim (w2) or fly (w3); they breathe, eat, age, drown and burn
+const INS=/^(Ant|Spider|Beetle|Worm|Snail|Bee|Fly|Mosquito|Butterfly|Dragonfly|Wasp|Moth|Firefly)$/,CRE=[],PLN=[];
+const crea=(list,k,kind,D)=>list.split(';').forEach(s=>{const[n0,c]=s.split(' '),n=n0.replace(/_/g,' '),dead=k===2?'Dead_Fish':n==='Human'||n==='Child'?'Corpse':INS.test(n)?'Dead_Bug':'Carcass';CRE.push(n);
+  add(n,c,kind,D,`w${k} h60>${dead} c-${k===2?4:25}>${dead} g.00003>${dead}${n==='Child'?' L3000>Human':''}`,'Life')});
+crea('Human e8b48a;Child f0c8a8;Dog b08a5a;Cat c8a070;Rabbit d8d0c8;Mouse a09890;Rat 807870;Cow e8e8e8;Pig f0a8a8;Sheep f0f0ea;Goat d8d0c0;Horse 8a5a30;Donkey 9a8a7a;Chicken f8f4ee;Duck e8d070;Turkey 7a5a3a;Goose f0f0f0;Fox d86a20;Wolf 8a8a90;Bear 5a3a20;Deer b08050;Elephant 9a9aa0;Lion d8a850;Tiger e08a30;Monkey 9a6a3a;Gorilla 3a3a40;Frog 4aa040;Lizard 6a9a40;Snake 4a8a30;Turtle 5a7a40;Kangaroo c09060;Camel d0b080;Giraffe e0b050;Zebra eeeeee;Panda e8e8e8;Squirrel a07040;Hedgehog 7a6a5a;Penguin 2a2a3a;Ant 3a2a2a;Spider 2a2a2a;Beetle 2a4a3a;Worm c88a8a;Snail b09070;Crab d85a3a',1,1,5.5);
+crea('Fish ffb04a;Goldfish ff8a20;Salmon e08a7a;Tuna 6a7a9a;Shark 8a98a8;Whale 5a6a8a;Dolphin 8aa0b8;Jellyfish e8c8f0;Octopus c86a8a;Squid d89a9a;Seahorse e8b040;Eel 5a6a50;Piranha 8a5a4a;Clownfish ff7a20;Starfish f08a50;Shrimp f09080;Lobster c84a30;Tadpole 3a4a30;Plankton 8aff8a',2,2,3);
+crea('Bird 6a8ac8;Eagle 7a5a3a;Owl a09080;Parrot 3ac860;Bat 3a3040;Bee f0c820;Fly 3a3a3a;Mosquito 6a6a6a;Butterfly f08ac8;Dragonfly 3ac8c8;Wasp e8c000;Moth c8b898;Firefly d8f060;Pigeon 9a9aa8;Crow 2a2a30;Seagull e8e8ee;Hawk 8a6a4a',3,3,.5);
+'Oak Pine Birch Maple Willow Palm Cedar Redwood Baobab Cherry Elm Spruce Cypress Eucalyptus Mangrove Teak Walnut Acacia Banyan Sequoia'.split(' ').forEach(n=>{add(n+' Tree',mx('2a6a2a',hc(n),.2),4,'','i300 b60 P','Life');PLN.push(n+' Tree')});
+kv('Rose:e82040 Tulip:f04a6a Daisy:f8f8f0 Sunflower:f8c820 Lily:f8e8f0 Orchid:c860c8 Lavender:9a7ad8 Poppy:e82a1a Daffodil:f8e030 Violet:6a3ac8 Lotus:f8a8c8 Marigold:f89a20 Dandelion:f8e840 Jasmine:f8f8e8 Iris:5a4ad8 Peony:f898b8 Hibiscus:e8306a Carnation:f87a9a Lilac:b88ad8 Fern:2a8a3a Clover:4aa850 Ivy:2a7a3a Weed:6a9a3a Wheat:d8c060 Rice_Plant:a8c860 Corn_Plant:8ab840 Tomato_Plant:3a9a3a Sugarcane:9ac860 Cotton_Plant:f0f0e8 Tea_Plant:3a7a3a Coffee_Plant:2a6a3a Grapevine:4a8a3a',(k,v)=>{const n=k.replace(/_/g,' ');add(n,v,4,'','i300 b20 P','Life');PLN.push(n)});
+['Plant','Grass','Leaf','Vine','Moss','Algae'].forEach(n=>PLN.push(n));
+
+// --- food: raw, cooked, burnt and rotten stages
+const FCO={},PER=[];kv('Apple:d83a3a Banana:f0d840 Orange:f09020 Lemon:f0e040 Lime:8ad040 Strawberry:e82a3a Blueberry:4a4aa8 Grape:8a3a9a Watermelon:e84a5a Carrot:f08a20 Tomato:e83a2a Broccoli:3a8a2a Potato:c8a870 Onion:e8d0a8 Egg:f8f0d8 Cheddar:f0a020 Bread:d8a860 Rice:f8f4e8 Chocolate:4a2a1a Coffee:3a2418 Tea:b0702a Beer:e8b030 Wine:7a1a3a Cucumber:4aa040 Lettuce:6ac050 Cabbage:a8d890 Pumpkin:f08a20 Corn:f0d040 Salmon:f08a6a Shrimp:f0907a Beef:b04a4a Chicken:f0d0b0 Pork:e8a0a0 Cherry:b01030 Peach:f8b080 Pineapple:f0d040 Mango:f8a820 Kiwi:8ab840 Cola:3a1a10 Orange_Juice:f8a020 Whiskey:b8701a Vodka:e8f0ff',(k,v)=>FCO[k]=v);
+// [kind, cook temp (0 liquid, -1 inert), burn temp, perishable, default color, names]
+[[1,160,300,1,'e05a3a','Apple Banana Orange Lemon Lime Grapefruit Peach Pear Plum Cherry Strawberry Blueberry Raspberry Blackberry Grape Watermelon Melon Cantaloupe Pineapple Mango Papaya Kiwi Coconut Pomegranate Fig Date Apricot Avocado Cranberry Guava Lychee Passionfruit Tangerine Nectarine Persimmon Dragonfruit Starfruit Mulberry Currant Gooseberry Quince Olive Honeydew Plantain Jackfruit Durian Rambutan Elderberry Clementine Mandarin'],
+[1,170,300,1,'5aa040','Carrot Potato Tomato Onion Garlic Lettuce Cabbage Spinach Broccoli Cauliflower Cucumber Bell_Pepper Chili Eggplant Zucchini Pumpkin Squash Beet Radish Turnip Celery Corn Pea Green_Bean Asparagus Leek Kale Sweet_Potato Ginger Artichoke Okra Parsnip Yam Cassava Brussels_Sprout Bok_Choy Fennel Shallot Kohlrabi Rhubarb Arugula Chard Watercress Endive Lentil Chickpea Soybean Tofu'],
+[1,160,300,1,'c05a5a','Beef Pork Chicken Turkey Duck_Meat Lamb Veal Venison Rabbit_Meat Bacon Ham Sausage Steak Liver Goose_Meat Mutton Ribs Meatball Burger Hot_Dog Salami Jerky'],
+[1,145,300,1,'e8907a','Salmon Tuna Cod Shrimp Crab Lobster Oyster Squid Octopus Sardine Trout Tilapia Herring Mackerel Clam Mussel Scallop Eel_Meat Anchovy Halibut Catfish Caviar Sushi'],
+[1,150,300,1,'f4e8b8','Egg Cheddar Mozzarella Parmesan Brie Gouda Feta Cream_Cheese Butter Yogurt Cottage_Cheese Swiss_Cheese Blue_Cheese Goat_Cheese Sour_Cream Whipped_Cream Custard Cheese'],
+[1,200,320,0,'e0c880','Rice Wheat Oats Barley Rye Quinoa Millet Sorghum Buckwheat Couscous Cereal Popcorn Oatmeal Pasta Noodles Spaghetti Macaroni Granola Bulgur Polenta Semolina'],
+[4,200,320,0,'d8a860','Bread Bagel Croissant Pizza Pancake Waffle Cake Cookie Pie Muffin Donut Cracker Pretzel Baguette Pita Tortilla Scone Brownie Cupcake Biscuit Cornbread Lasagna Sandwich Taco Burrito Dumpling Pastry'],
+[1,170,260,0,'e8a0c0','Chocolate Candy Marshmallow Jelly Ice_Cream Pudding Syrup Lollipop Gummy_Bear Fudge Toffee Nougat Marzipan Licorice Jam Candy_Cane Cotton_Candy Truffle Sorbet Meringue Praline'],
+[1,170,300,0,'c8a070','Almond Peanut Walnut Cashew Pistachio Hazelnut Pecan Sesame Sunflower_Seed Chia Flax Macadamia Pine_Nut Brazil_Nut Chestnut'],
+[1,-1,0,0,'c88a3a','Black_Pepper Cinnamon Vanilla Paprika Cumin Turmeric Oregano Basil Thyme Rosemary Parsley Mint Saffron Nutmeg Clove Cardamom Coriander Dill Sage Bay_Leaf Mustard_Seed Curry Chili_Powder Cayenne Anise Allspice Tarragon Chives Star_Anise Wasabi Vanilla_Bean Sumac Fenugreek'],
+[2,0,0,0,'a8703a','Coffee Tea Orange_Juice Apple_Juice Beer Wine Whiskey Vodka Rum Lemonade Cola Smoothie Champagne Cider Gin Tequila Brandy Sake Espresso Latte Hot_Chocolate Green_Tea Grape_Juice Tomato_Juice Coconut_Water Energy_Drink Kombucha Sparkling_Water']
+].forEach(([k,ck,bn,pr,dc,ns])=>ns.split(' ').forEach(t=>{
+  const n=t.replace(/_/g,' '),c=FCO[t]||mx(dc,hc(n),.4),Cn='Cooked '+n,Bn='Burnt '+n,Rn='Rotten '+n,D_=k===1?5:'';
+  if(ck===0)add(n,c,2,3.05,'h100>Steam c-2>Ice','Food');
+  else if(ck<0)add(n,c,1,5,'i300 b10','Food');
+  else{
+    add(n,c,k,D_,`h${ck}>${U(Cn)}`+(pr?` L7000>${U(Rn)}`:''),'Food');
+    add(Cn,mx(c,'a06030',.45),k,D_,`h${bn}>${U(Bn)}`+(pr?` L12000>${U(Rn)}`:''),'Food');
+    add(Bn,mx(c,'1a1410',.8),k,D_,`i${bn+80} b30`,'Food');
+    if(pr){add(Rn,mx(c,'6a7a3a',.5),1,5,'L20000>Dirt','Food');PER.push(n)}
+  }}));
+
+// --- hand-made special elements, chemicals and body parts: name|color|kind|density|options|category
+`Heater 1000|ff5a2a|4||K1000 r|Special
+Heater 3000|ffaa3a|4||K3000 r|Special
+Star Core|fff2c0|4||K5000 r|Special
+Freezer -200|9ae0ff|4||K-200 r|Special
+Absolute Zero|e0f8ff|4||K-273 r|Special
+Black Hole|1a0030|4||V r|Special
+Dark Matter|2a1a4a|4||r|Special
+Antimatter|ffffff|1|9|i500 x30|Special
+Firework|ff4040|1|5|i230 x4|Special
+Firecracker|c82020|4||i200 x3|Special
+Grenade|4a5a3a|4||i200 x7|Special
+Landmine|6a6a50|1|6|i300 x6|Special
+Bomb|2a2a2a|4||i200 x12|Special
+Mega Bomb|3a2a2a|4||i200 x25|Special
+Blue Flame|3a7aff|3|.1|K1200 L40>Smoke|Special
+Green Flame|3aff7a|3|.1|K1100 L40>Smoke|Special
+Lightning|fff8a0|3|.1|K3000 L12>Fire|Special
+Radioactive Waste|7aff3a|1|7|d.0005>Lead|Special
+Nitroglycerin|f8f0a0|2|3.3|i100 x7|Special
+RDX|f0f0e0|1|5.3|i230 x9|Special
+PETN|f4f0e8|1|5.3|i200 x10|Special
+HMX|f0ece0|1|5.4|i280 x11|Special
+Ammonium Nitrate|f8f8f8|1|5|i300 x5|Special
+Rocket Fuel|e8f0ff|2|2.8|i250 b40 x2|Special
+Hydrochloric Acid|d8f080|2|3.2|A h110>Steam|Chemicals
+Sulfuric Acid|e8e8a0|2|5|A|Chemicals
+Nitric Acid|f0d890|2|3.7|A h83>Nitrogen_Dioxide|Chemicals
+Phosphoric Acid|e0e0f0|2|3.9|A|Chemicals
+Hydrofluoric Acid|d0f0d0|2|3.2|A|Chemicals
+Acetic Acid|f0f0d8|2|3.1|i463 b15 h118>Steam|Chemicals
+Citric Acid|f8f8e0|1|5.1||Chemicals
+Hydrogen Peroxide|dff0ff|2|3.5|h150>Steam|Chemicals
+Acetone|f0f8ff|2|2.7|i465 b20|Chemicals
+Benzene|e8e8d0|2|2.7|i560 b25|Chemicals
+Toluene|ecece0|2|2.7|i480 b25|Chemicals
+Diethyl Ether|f0f8f8|2|2.5|i160 b25|Chemicals
+Glycerol|f4f0e0|2|3.6||Chemicals
+Ethylene Glycol|e8f4ff|2|3.5|i410 b20|Chemicals
+Chloroform|e8f0f0|2|4.3||Chemicals
+Kerosene|e8d8a0|2|2.2|i210 b30|Chemicals
+Diesel|d8c070|2|2.3|i210 b30|Chemicals
+Vaseline|f8f0c0|2|3.8|i210 b40 f.3|Chemicals
+Heavy Water|3f84ff|2|3.3|h101>Steam c3>Ice|Chemicals
+Detergent|a0d8f0|2|3.2||Chemicals
+Antifreeze|a0f0a0|2|3.5||Chemicals
+Superglue|f0f0f8|2|3.4||Chemicals
+Ammonium Chloride|f4f4f4|1|5||Chemicals
+Urea|f8f8f4|1|5|h133>Ammonia|Chemicals
+Glucose|f8f4f0|1|5.3|h146>Caramel|Chemicals
+Fructose|f8f0e8|1|5.3|h103>Caramel|Chemicals
+Starch|f8f4e8|1|3|i400 b10|Chemicals
+Cellulose|e8e0c8|1|3|i300 b20|Chemicals
+Charcoal|1a1a1e|1|5|i350 b160|Chemicals
+Coke|3a3a40|1|5|i450 b200|Chemicals
+Plaster|f0eee8|1|5.4||Chemicals
+Soap|f0e8f8|1|5||Chemicals
+Dough|f0e0b8|1|5.2|h150>Bread|Chemicals
+Polyethylene|e8f0f0|4||h115>Molten_Plastic|Chemicals
+PVC|e8e8f0|4||h180>Molten_Plastic|Chemicals
+Nylon|f0eee8|4||h255>Molten_Plastic|Chemicals
+Teflon|f4f4f0|4||h327>Molten_Plastic r|Chemicals
+Polystyrene|f0f0f0|4||h240>Molten_Plastic|Chemicals
+Acrylic|e8f4f8|4||h160>Molten_Plastic|Chemicals
+Kevlar|e8d060|4||i427 b30 r|Chemicals
+Epoxy|e8d8a0|4||i400 b40|Chemicals
+Silicone|e8e8ec|4||i400 b40|Chemicals
+Fiberglass|d8e0c0|4||r|Chemicals
+Ceramic|e8e0d0|4||r|Chemicals
+Porcelain|f4f4f0|4||r|Chemicals
+Ozone|a0c0ff|3|1.6||Chemicals
+Carbon Monoxide|d8d8e0|3|.97|i609 b8|Chemicals
+Nitrogen Dioxide|b86a2a|3|1.5||Chemicals
+Nitric Oxide|e0d0d0|3|1||Chemicals
+Nitrous Oxide|f0f0ff|3|1.5||Chemicals
+Sulfur Dioxide|f0f0c0|3|2.2||Chemicals
+Sulfur Trioxide|f0f0d0|3|2.7||Chemicals
+Hydrogen Sulfide|d8e090|3|1.1|i260 b8|Chemicals
+Hydrogen Chloride|e8f0d0|3|1.2||Chemicals
+Natural Gas|d0d8f0|3|.6|i537 b8|Chemicals
+Deuterium|9bd0ff|3|.07|i500 x3|Chemicals
+Bone|f0ead8|1|5.8||Life
+Bones|f0ead8|1|5.8||Life
+Muscle|c0454a|1|5.4|i350 b30|Life
+Skin|f0c8a8|1|5|i300 b20|Life
+Fat|f8e8a8|1|4.8|i300 b40|Life
+Brain|f0b8b8|1|5||Life
+Heart|c02030|1|5.4||Life
+Liver|7a2020|1|5.4||Life
+Lung|f0a0a0|1|5||Life
+Kidney|8a3030|1|5.4||Life
+Stomach|e8a0a0|1|5||Life
+Intestine|e8b8a0|1|5||Life
+Eye|f8f8f8|1|5||Life
+Hair|3a2a1a|1|2.5|i260 b10|Life
+Nail|f0e0d0|1|5.5||Life
+Tooth|f8f4e4|1|6||Life
+Cartilage|e8e8e0|1|5||Life
+Sweat|d8ecff|2|3||Life
+Tear|e0f0ff|2|3||Life
+Lymph|f0e8d0|2|3.1||Life
+Blood Plasma|f0d880|2|3.1||Life
+Stomach Acid|d8f0a0|2|3.1|A|Life
+Cell|f0c0d0|2|3.2|f.5|Life
+DNA|b0a0f0|1|4||Life
+Corpse|8a5a4a|1|5.6|i250 b40 L9000>Bones|Life
+Carcass|8a4a3a|1|5.6|i250 b40 L9000>Bones|Life
+Dead Fish|8a98a0|1|5.6|i250 b30 L7000>Bones|Life
+Dead Bug|3a3a2a|1|4|i250 b10 L5000>Ash|Life
+Bacteria|8ad860|2|3.3|f.3|Life
+Virus|d84aff|2|3.2|f.3|Life
+Amoeba|a8d8c8|2|3.2|f.3|Life
+Algae|3a9a4a|2|3.2|f.3|Life
+Yeast|e8d8a8|1|4.5||Life
+Mold|6a9a8a|1|4||Life
+Fungus|a89a7a|1|4.5||Life`.split('\n').forEach(l=>{const n=l.split('|')[0];if(!have.has(n)){have.add(n);GN.push(l)}});
+// source blocks for many elements
+const CM={};SL.concat(GN).forEach(l=>{const f=l.split('|');CM[f[0]]=f[1]});
+'Salt Water,Gasoline,Alcohol,Snow,Steam,Hydrogen,Oxygen,Nitrogen,CO2,Chlorine,Mud,Blood,Honey,Milk,Mercury,Molten Iron,Molten Glass,Dirt,Gravel,Coal,Gunpowder,Seed,Sugar,Sawdust,Flour,Ash,Slime,Napalm,Nitro,Ice,Vinegar,Bleach,Propane,Helium,Neon,Ammonia,Smoke,Plasma,Cloud,Salt,Stone,Concrete,Hydrochloric Acid,Sulfuric Acid,Hydrogen Peroxide,Bacteria,Virus,Yeast,Human,Fish,Bird,Sheep,Wolf'.split(',').forEach(n=>CM[n]&&add(n+' Source',CM[n],4,'','s>'+U(n)+' r','Special'));
+const SRC2=SL.concat(GN).join('\n');
+
+const E=[['Erase','666',0,'']],N={Erase:0},rows=SRC2.split('\n').map(l=>l.split('|')),NE=rows.length+1;
+rows.forEach((r,i)=>{N[r[0]]=i+1;E.push([r[0],r[1],+r[2],r[5]||CAT(r[0],+r[2])])});
+const Z=n=>new Float32Array(NE).fill(n),B=()=>new Uint8Array(NE);
+const TY=B(),D=Z(9),T0=Z(20),HT=Z(Infinity),CT=Z(-Infinity),IG=Z(Infinity),KT=Z(NaN),FW=Z(5),BL=Z(25),LF=Z(0),
+EX=B(),CLN=B(),VD=B(),PL=B(),AC=B(),RS=B(),HN=[],CN=[],IGN=[],LN=[],SP=[];
+const WK=B(),DK=new Uint16Array(NE),DP=Z(0),DH=Z(0);
+const id=n=>n?N[n.replace(/_/g,' ')]:0;
+rows.forEach((r,i)=>{
+  const t=i+1;TY[t]=+r[2];if(r[3])D[t]=+r[3];
+  (r[4]||'').split(' ').forEach(o=>{
+    const q=o.match(/^([a-zA-Z])(-?[\d.]*)(?:>(.*))?$/);if(!q)return;
+    const c=q[1],n=parseFloat(q[2]),a=q[3];
+    if(c==='T')T0[t]=n;else if(c==='K')KT[t]=n;
+    else if(c==='h'){HT[t]=n;HN[t]=id(a)}else if(c==='c'){CT[t]=n;CN[t]=id(a)}
+    else if(c==='i'){IG[t]=n;IGN[t]=id(a)}else if(c==='b')BL[t]=n;else if(c==='x')EX[t]=n;
+    else if(c==='L'){LF[t]=n;LN[t]=id(a)}else if(c==='f')FW[t]=n;else if(c==='s')SP[t]=id(a);
+    else if(c==='C')CLN[t]=1;else if(c==='V')VD[t]=1;else if(c==='P')PL[t]=1;else if(c==='A')AC[t]=1;else if(c==='r')RS[t]=1;
+    else if(c==='w')WK[t]=n;else if(c==='d'||c==='g'){DP[t]=n;DK[t]=id(a);DH[t]=c==='d'?250:0}
+  });
+});
+const FI=N.Fire,SM=N.Smoke,WA=N.Water,RX=new Map(),RA=B();
+RXS.split('\n').forEach(l=>{
+  const m=l.match(/^(.*?)\+(.*?)>(.*?)\+(.*?) ([\d.]+)$/),[a,b,c,d]=[1,2,3,4].map(k=>N[m[k]]||0),p=+m[5];
+  RX.set(a*K+b,[c,d,p]);RX.set(b*K+a,[d,c,p]);RA[a]=RA[b]=1;
+});
+// ===== generated reactions: real chemistry rules applied across the whole table =====
+const rx=(a,b,c,d,p)=>{const A=N[a],B=N[b];if(!A||!B||A===B||RX.has(A*K+B))return;const C=c?N[c]:0,D_=d?N[d]:0;if(C===undefined||D_===undefined)return;RX.set(A*K+B,[C,D_,p]);RX.set(B*K+A,[D_,C,p]);RA[A]=RA[B]=1},
+ rxl=s=>s.split('\n').forEach(l=>{const m=l.match(/^(.*?)\+(.*?)>(.*?)\+(.*?) ([\d.]+)$/);m&&rx(m[1],m[2],m[3],m[4],+m[5])});
+rxl(`Calcium Oxide+Water>Calcium Hydroxide+Steam .1
+Silver Nitrate+Salt>Silver Chloride+Sodium Nitrate .3
+Barium Chloride+Sodium Sulfate>Barium Sulfate+Salt .3
+Calcium Chloride+Sodium Carbonate>Calcium Carbonate+Salt .3
+Lead Nitrate+Potassium Iodide>Lead Iodide+Potassium Nitrate .4
+Copper Sulfate+Sodium Hydroxide>Copper Hydroxide+Sodium Sulfate .3
+Magnesium Chloride+Sodium Hydroxide>Magnesium Hydroxide+Salt .3
+Barium Chloride+Sulfuric Acid>Barium Sulfate+Hydrochloric Acid .4
+Lead Nitrate+Sodium Sulfate>Lead Sulfate+Sodium Nitrate .3
+Iron Chloride+Sodium Hydroxide>Iron Hydroxide+Salt .3
+Hydrogen Chloride+Water>Hydrochloric Acid+ .3
+Sulfur Trioxide+Water>Sulfuric Acid+ .3
+Nitrogen Dioxide+Water>Nitric Acid+ .2
+Chlorine+Water>Hydrochloric Acid+ .02
+Ammonia+Hydrochloric Acid>Ammonium Chloride+ .4
+Ammonia+Hydrogen Chloride>Ammonium Chloride+ .5
+Ammonia+Nitric Acid>Ammonium Nitrate+Water .4
+Aluminum+Iron Oxide>Aluminum Oxide+Iron .08
+Aluminum+Copper Oxide>Aluminum Oxide+Copper .08
+Magnesium+CO2>Magnesium Oxide+Coal .05
+Sulfur+Oxygen>Sulfur Dioxide+ .002
+Sodium Hydroxide+Fat>Soap+Glycerol .05
+Hydrogen Peroxide+Manganese Oxide>Oxygen+Manganese Oxide .3
+Hydrogen Peroxide+Yeast>Oxygen+Yeast .3
+Hydrogen Peroxide+Blood>Oxygen+Blood .2
+Hydrogen Peroxide+Potassium Iodide>Oxygen+Potassium Iodide .4
+Vinegar+Calcium Carbonate>Calcium Acetate+CO2 .08
+Flour+Water>Dough+ .3
+Yeast+Sugar>Yeast+Alcohol .02
+Yeast+Glucose>Yeast+Alcohol .03
+Sodium Hydroxide+Aluminum>Hydrogen+Aluminum Hydroxide .05`);
+const AC5=[['Hydrochloric Acid','Chloride'],['Sulfuric Acid','Sulfate'],['Nitric Acid','Nitrate'],['Phosphoric Acid','Phosphate'],['Acetic Acid','Acetate']];
+MT.forEach(([n,b])=>{
+  const o=n+' Oxide',h=n+' Hydroxide';
+  AC5.forEach(([a,an])=>{const S=SN(n,an);
+    if(b>2)rx(n,a,S,'Hydrogen',.02+b*.02);else if(b&&an==='Nitrate')rx(n,a,S,'Nitrogen Dioxide',.03);
+    rx(o,a,S,'Water',.12);rx(h,a,S,'Water',.3);rx(n+' Carbonate',a,S,'CO2',.35)});
+  if(b>5)rx(n,'Water',h,'Hydrogen',(b-5)*.12);
+  if(b>5)rx(o,'Water',h,'',.05);
+  if(b>4)rx(h,'CO2',n+' Carbonate','Water',.04);
+  if(b){rx(n,'Oxygen',o,'',.0005+b*.0015);rx(n,'Chlorine',SN(n,'Chloride'),'',.02+b*.03);rx(n,'Sulfur',n+' Sulfide','',.01)}
+  if(b>0&&b<5)rx(o,'Coal',n,'CO2',.03);
+});
+// metal displacement (reactivity series)
+const RO='Magnesium Aluminum Zinc Iron Nickel Tin Lead Copper Silver'.split(' ');
+RO.forEach((x,i)=>RO.slice(i+1).forEach(y=>['Sulfate','Chloride','Nitrate'].forEach(an=>rx(x,y+' '+an,x+' '+an,y,.08))));
+// organic reactions
+ST.slice(0,8).forEach((s,k)=>{const n=k+1,l=s.toLowerCase();
+  rx(s+'ane','Chlorine','Chloro'+l+'ane','Hydrogen Chloride',.01);
+  rx(s+'ane','Bromine','Bromo'+l+'ane','',.01);
+  rx(s+'anol','Acetic Acid',s+'yl Acetate','Water',.02);
+  rx(s+'anol','Oxygen',s+'anal','Water',.003);
+  rx(s+'anal','Oxygen',s+'anoic Acid','',.005);
+  if(n>1){rx(s+'ene','Hydrogen',s+'ane','',.02);rx(s+'yne','Hydrogen',s+'ene','',.02)}
+});
+// limestone and chalk dissolve in acid
+['Limestone','Marble','Chalk','Calcite','Travertine','Coquina','Aragonite'].forEach(m=>{rx(m,'Hydrochloric Acid','Calcium Chloride','CO2',.2);rx(m,'Vinegar','Calcium Acetate','CO2',.1)});
+// life: breathing, photosynthesis, eating, hunting, rot, infection, disinfection
+CRE.forEach(c=>rx(c,'Oxygen',c,'CO2',.002));
+PLN.forEach(p=>rx(p,'CO2',p,'Oxygen',.003));
+'Rabbit Mouse Rat Cow Sheep Goat Horse Donkey Deer Giraffe Zebra Elephant Squirrel Snail Kangaroo Camel Panda'.split(' ').forEach(h=>{rx(h,'Grass',h,h,.004);rx(h,'Leaf',h,'',.01)});
+const PREY='Rabbit Mouse Rat Sheep Goat Deer Chicken Duck Fish Pigeon Squirrel Frog'.split(' ');
+'Wolf Lion Tiger Bear Fox Cat Snake Shark Hawk Eagle Owl'.split(' ').forEach(c=>PREY.forEach(p=>rx(c,p,c,'Blood',.02)));
+['Bread','Cooked Chicken','Cooked Beef','Cooked Pork','Cooked Salmon','Apple','Banana','Cooked Egg','Cooked Rice','Cooked Potato'].forEach(f=>rx('Human',f,'Human','Child',.003));
+PLN.filter(p=>/^[A-Z]/.test(p)&&!/Tree|Plant|Vine|Moss|Algae|Grass|Leaf|Wheat|Weed|Fern|Ivy|Clover|Grapevine|Sugarcane/.test(p)).forEach(f=>rx('Bee',f,'Bee','Honey',.004));
+const BR=['Bacteria','Mold','Fungus'];
+PER.forEach(n=>BR.forEach(b=>rx(b,n,b,'Rotten '+n,.01)));
+BR.forEach(b=>['Corpse','Carcass','Dead Fish','Dead Bug'].forEach(d=>rx(b,d,b,'Dirt',.01)));
+rx('Bacteria','Human','Bacteria','Corpse',.002);rx('Virus','Human','Virus','Virus',.01);
+['Bacteria','Virus','Mold','Fungus','Amoeba'].forEach(m=>['Bleach','Alcohol','Ethanol','Soap','Detergent','Hydrogen Peroxide','Hydrochloric Acid'].forEach(d=>rx(d,m,d,'',.3)));
+
+const DX=[1,-1,0,0],DY=[0,0,1,-1];
+const pk=(h,f=1)=>{const n=parseInt(h.slice(1),16),c=s=>Math.min(255,(n>>s&255)*f)|0;return(255<<24)|(c(0)<<16)|(c(8)<<8)|c(16)};
+const CL=new Uint32Array(E.length*4);
+E.forEach((e,t)=>{for(let k=0;k<4;k++)CL[t*4+k]=pk('#'+e[1],.88+.08*k)});
+const FC=['#ffd23f','#ff9a1f','#ff6a13','#e63a0b'].map(h=>pk(h)),BG=pk('#0b0b10');
+function tint(c,tp){
+  let r=c&255,q=c>>8&255,b=c>>16&255;
+  if(tp>500){const s=Math.min(1,(tp-500)/700);r+=(255-r)*s;q+=(130-q)*s*.6;b*=1-s}
+  else{const s=Math.min(1,(-10-tp)/120);r*=1-s*.5;b+=(255-b)*s*.4}
+  return(255<<24)|(b<<16)|(q<<8)|r;
+}
+let W=0,H=0,g=new Uint16Array(0),a=g,v=new Uint8Array(0),m=v,T=new Float32Array(0),fr=0,dir=0,img,px,sel=1,R=4,down=0,lx=0,ly=0,paused=0,nt;
+const bq=[],cv=$('cv'),ctx=cv.getContext('2d'),wrap=$('wrap');
+
+const put=(i,t,l,k)=>{g[i]=t;a[i]=l!==undefined?l:LF[t]?(LF[t]/2+rnd()*LF[t]/2)|0:0;v[i]=rnd()*4|0;if(!k)T[i]=T0[t]};
+const tr=(i,n)=>put(i,n||0,undefined,1);
+const sw=(i,j)=>{let q=g[i];g[i]=g[j];g[j]=q;q=a[i];a[i]=a[j];a[j]=q;q=v[i];v[i]=v[j];v[j]=q;q=T[i];T[i]=T[j];T[j]=q;m[i]=m[j]=fr};
+const inb=(x,y)=>x>=0&&y>=0&&x<W&&y<H;
+const ok=(t,x,y)=>{if(!inb(x,y))return 0;const u=g[y*W+x];return !u||(TY[u]>1&&TY[u]<4&&D[t]>D[u])};
+const hi=(t,x,y)=>{if(!inb(x,y))return 0;const u=g[y*W+x];return !u||(TY[u]===2&&D[t]<D[u])};
+function fall(x,y,t){
+  const i=y*W+x,d=rnd()<.5?-1:1;
+  if(ok(t,x,y+1)){sw(i,i+W);return 1}
+  if(ok(t,x+d,y+1)){sw(i,i+W+d);return 1}
+  if(ok(t,x-d,y+1)){sw(i,i+W-d);return 1}
+  return 0
+}
+function flow(x,y,t,disp){
+  if(fall(x,y,t))return;
+  const i=y*W+x,d=rnd()<.5?-1:1;
+  for(let q=0;q<2;q++){
+    const e=q?-d:d;let s=0;
+    while(s<disp&&inb(x+e*(s+1),y)&&!g[i+e*(s+1)])s++;
+    if(s){sw(i,i+e*s);return}
+  }
+}
+function rise(x,y,t){
+  const i=y*W+x,d=rnd()<.5?-1:1;
+  if(hi(t,x,y-1)&&rnd()<.85)sw(i,i-W);
+  else if(hi(t,x+d,y-1))sw(i,i-W+d);
+  else if(inb(x+d,y)&&!g[i+d]&&rnd()<.6)sw(i,i+d);
+}
+function ign(i,t){
+  if(EX[t]){bq.push([i,EX[t]]);put(i,FI,6);return}
+  const n=IGN[t]||FI;put(i,n,n===FI?BL[t]:undefined);
+}
+function upd(x,y,i,t){
+  if(KT[t]>-999)T[i]=KT[t];
+  const tp=T[i],k=TY[t];
+  if(tp>HT[t]){tr(i,HN[t]);return}
+  if(tp<CT[t]){tr(i,CN[t]);return}
+  if(tp>IG[t]){ign(i,t);return}
+  if(LF[t]&&--a[i]<=0){put(i,LN[t]||0);return}
+  if(DK[t]&&rnd()<DP[t]){T[i]+=DH[t];tr(i,DK[t]);return}
+  const n=rnd()*4|0,X=x+DX[n],Y=y+DY[n];
+  if(inb(X,Y)){
+    const j=Y*W+X,u=g[j];
+    if(u){
+      const d=(T[j]-tp)*.25;T[i]+=d;T[j]-=d;
+      if(RA[t]){const r=RX.get(t*K+u);if(r&&rnd()<r[2]){put(i,r[0]);put(j,r[1]);return}}
+      if(AC[t]){if(!RS[u]&&(TY[u]===1||TY[u]===4)&&rnd()<.3){put(j,0);if(rnd()<.3){put(i,0);return}}}
+      else if(PL[t]){if(u===WA&&rnd()<.08)put(j,t)}
+      else if(VD[t]&&!RS[u])put(j,0);
+    }else T[i]+=(20-tp)*.004;
+  }else T[i]+=(20-tp)*.004;
+  if(SP[t]){
+    const s=SP[t],yy=y+(TY[s]===3?-1:1);
+    if(inb(x,yy)&&!g[yy*W+x]&&rnd()<.5)put(yy*W+x,s);
+    return
+  }
+  if(CLN[t]){
+    if(!a[i]){for(let q=0;q<4;q++){const X2=x+DX[q],Y2=y+DY[q];if(inb(X2,Y2)){const u2=g[Y2*W+X2];if(u2&&!CLN[u2]){a[i]=u2;break}}}}
+    else if(inb(X,Y)&&!g[Y*W+X]&&rnd()<.4)put(Y*W+X,a[i]);
+    return
+  }
+  if(WK[t]){move(x,y,i,t);return}
+  if(k===4)return;
+  if(k===1){fall(x,y,t);return}
+  if(k===2){const f=FW[t];if(f<1){if(rnd()<f)flow(x,y,t,1)}else flow(x,y,t,f);return}
+  if(t===FI){if(rnd()<.02&&y>0&&!g[i-W])put(i-W,SM);if(a[i]>25&&rnd()>.05)return}
+  if(D[t]>=1)flow(x,y,t,3);else rise(x,y,t);
+}
+function move(x,y,i,t){
+  const k=WK[t],s=v[i]&1?1:-1;
+  if(k===2){
+    let w=0;for(let q=0;q<4;q++){const X=x+DX[q],Y=y+DY[q];if(inb(X,Y)&&TY[g[Y*W+X]]===2)w++}
+    if(!w){if(ok(t,x,y+1))sw(i,i+W);else if(rnd()<.004)tr(i,DK[t]);return}
+    const q=rnd()*4|0,X=x+DX[q],Y=y+DY[q];
+    if(inb(X,Y)&&TY[g[Y*W+X]]===2&&rnd()<.4)sw(i,Y*W+X);
+    return
+  }
+  if(k===3){const X=x+(rnd()*3|0)-1,Y=y+(rnd()*3|0)-1;if(inb(X,Y)&&!g[Y*W+X]&&rnd()<.6)sw(i,Y*W+X);return}
+  if(y>0&&TY[g[i-W]]===2&&rnd()<.01){tr(i,DK[t]);return}
+  if(ok(t,x,y+1)){sw(i,i+W);return}
+  if(rnd()<.25){
+    if(rnd()<.03)v[i]^=1;
+    else if(inb(x+s,y)&&!g[i+s])sw(i,i+s);
+    else if(inb(x+s,y-1)&&!g[i+s-W]&&y>0&&!g[i-W])sw(i,i+s-W);
+    else v[i]^=1;
+  }
+}
+function boom(){
+  while(bq.length){
+    const[j,rr]=bq.pop(),bx=j%W,by=j/W|0,r2=rr*rr;
+    for(let dy=-rr;dy<=rr;dy++)for(let dx=-rr;dx<=rr;dx++){
+      const d2=dx*dx+dy*dy,X=bx+dx,Y=by+dy;
+      if(d2>r2||!inb(X,Y))continue;
+      const q=Y*W+X,u=g[q];
+      if(RS[u]||(d2>r2*.6&&rnd()<.5))continue;
+      if(EX[u]){ign(q,u);continue}
+      if(rnd()<.55)put(q,FI,6+rnd()*26|0);else put(q,rnd()<.3?SM:0);
+    }
+  }
+}
+function step(){
+  fr=fr%250+1;dir^=1;
+  for(let y=H-1;y>=0;y--)for(let k=0;k<W;k++){
+    const x=dir?k:W-1-k,i=y*W+x,t=g[i];
+    if(t&&m[i]!==fr)upd(x,y,i,t);
+  }
+  boom();
+}
+function draw(){
+  for(let i=0;i<px.length;i++){
+    const t=g[i];
+    if(!t){px[i]=BG;continue}
+    let c=t===FI?FC[(a[i]+i)&3]:CL[t*4+v[i]];
+    const tp=T[i];if(t!==FI&&(tp>500||tp<-10))c=tint(c,tp);
+    px[i]=c;
+  }
+  ctx.putImageData(img,0,0);
+}
+function fit(){
+  const r=wrap.getBoundingClientRect(),cs=innerWidth<640?3:4,nw=Math.max(40,r.width/cs|0),nh=Math.max(40,r.height/cs|0);
+  if(nw===W&&nh===H)return;
+  const n=nw*nh,G=new Uint16Array(n),A=new Uint16Array(n),V=new Uint8Array(n),Tn=new Float32Array(n).fill(20);
+  for(let y=0;y<Math.min(H,nh);y++)for(let x=0;x<Math.min(W,nw);x++){const s=(H-1-y)*W+x,d=(nh-1-y)*nw+x;G[d]=g[s];A[d]=a[s];V[d]=v[s];Tn[d]=T[s]}
+  W=nw;H=nh;g=G;a=A;v=V;T=Tn;m=new Uint8Array(n);
+  cv.width=W;cv.height=H;img=ctx.createImageData(W,H);px=new Uint32Array(img.data.buffer);
+}
+
+// painting
+const pos=e=>{const r=cv.getBoundingClientRect();return[(e.clientX-r.left)/r.width*W|0,(e.clientY-r.top)/r.height*H|0]};
+function stamp(cx,cy){
+  for(let dy=-R;dy<=R;dy++)for(let dx=-R;dx<=R;dx++){
+    if(dx*dx+dy*dy>R*R+R||!inb(cx+dx,cy+dy))continue;
+    const i=(cy+dy)*W+cx+dx;
+    if(sel<0){if(g[i])T[i]=Math.max(-273,Math.min(5000,T[i]+(sel===-1?60:-60)))}
+    else if(!sel)put(i,0);
+    else if(!g[i]&&(TY[sel]===4||rnd()<.35))put(i,sel);
+  }
+}
+function line(x0,y0,x1,y1){const n=Math.max(Math.abs(x1-x0),Math.abs(y1-y0),1);for(let k=0;k<=n;k++)stamp(x0+(x1-x0)*k/n|0,y0+(y1-y0)*k/n|0)}
+cv.onpointerdown=e=>{cv.setPointerCapture(e.pointerId);down=1;[lx,ly]=pos(e);$('hint').style.display='none'};
+cv.onpointermove=e=>{if(!down)return;const[x,y]=pos(e);line(lx,ly,x,y);lx=x;ly=y};
+cv.onpointerup=cv.onpointercancel=()=>{down=0};
+
+// interface
+const pal=$('pal'),tabs=$('tabs'),note=s=>{$('st').textContent=s;clearTimeout(nt);nt=setTimeout(()=>$('st').textContent='',1800)};
+function pick(i){sel=i;document.querySelectorAll('[data-i]').forEach(b=>b.classList.toggle('on',+b.dataset.i===i))}
+function mk(i,name,col,k,par){
+  const b=document.createElement('button');b.dataset.i=i;b.dataset.k=k;
+  b.innerHTML='<i style="background:#'+col+'"></i>'+name;b.onclick=()=>pick(i);par.appendChild(b);
+}
+mk(0,'Erase','666',0,$('tools'));mk(-1,'Heat','ff6a2a',0,$('tools'));mk(-2,'Cold','5ac8ff',0,$('tools'));
+const TB=['Powders','Liquids','Solids','Gases','Special','Life','Food','Elements','Salts','Organic','Minerals','Alloys','Chemicals'];
+let cur='Powders';
+const ps=document.createElement('input');ps.id='ps';ps.placeholder='Filter';ps.autocomplete='off';
+function render(){
+  pal.textContent='';let n=0,t=0;const q=ps.value.toLowerCase();
+  for(let i=1;i<E.length;i++){const e=E[i];if(e[3]!==cur||q&&!e[0].toLowerCase().includes(q))continue;t++;if(n<300){mk(i,e[0],e[1],e[2],pal);n++}}
+  if(t>n){const s=document.createElement('small');s.textContent='+'+(t-n)+' more: use Filter or Lookup';pal.appendChild(s)}
+  document.querySelectorAll('[data-i]').forEach(b=>b.classList.toggle('on',+b.dataset.i===sel));
+}
+function go(c){cur=c;[...tabs.children].forEach(b=>b.classList.toggle('on',b.textContent===c));render()}
+TB.forEach(n=>{const b=document.createElement('button');b.textContent=n;b.onclick=()=>go(n);tabs.appendChild(b)});
+tabs.appendChild(ps);ps.oninput=render;go('Powders');pick(1);
+
+const KN=['Tool','Powder','Liquid','Gas','Solid'];
+function info(t){
+  const nm=n=>n?E[n][0]:'nothing',s=[KN[TY[t]]];
+  if(TY[t]<4)s.push('density '+D[t]);
+  if(T0[t]!==20)s.push('starts at '+T0[t]+'°C');
+  if(KT[t]>-999)s.push('holds '+KT[t]+'°C');
+  if(HT[t]<1e9)s.push('above '+HT[t]+'°C becomes '+nm(HN[t]));
+  if(CT[t]>-1e9)s.push('below '+CT[t]+'°C becomes '+nm(CN[t]));
+  if(IG[t]<1e9)s.push((EX[t]?'explodes above ':'burns above ')+IG[t]+'°C');
+  if(AC[t])s.push('dissolves solids and powders');
+  if(PL[t])s.push('grows into water');
+  if(SP[t])s.push('emits '+nm(SP[t]));
+  if(CLN[t])s.push('copies a touching element');
+  if(VD[t])s.push('deletes what touches it');
+  if(RS[t])s.push('resists acid and blasts');
+  if(LF[t])s.push('fades into '+nm(LN[t]));
+  if(WK[t])s.push(['','walks','swims','flies'][WK[t]]);
+  if(DK[t])s.push((DH[t]?'radioactive, decays into ':'dies of old age into ')+nm(DK[t]));
+  const rx=[];RX.forEach((r,q)=>{if((q/K|0)===t)rx.push(nm(q%K))});
+  if(rx.length)s.push('reacts with '+rx.slice(0,14).join(', ')+(rx.length>14?' +'+(rx.length-14)+' more':''));
+  return s.join(', ');
+}
+const ls=$('ls');
+function look(){
+  const q=$('q').value.toLowerCase().trim();ls.textContent='';let n=0;
+  for(let i=1;i<E.length&&n<120;i++){const e=E[i];if(q&&!(e[0].toLowerCase().includes(q)||e[3].toLowerCase()===q))continue;n++;
+    const d=document.createElement('div');d.className='r';
+    d.innerHTML='<i style="background:#'+e[1]+'"></i><div><b>'+e[0]+'</b> <small>'+e[3]+'</small><small>'+info(i)+'</small></div>';
+    d.onclick=()=>{pick(i);ps.value=e[0];go(e[3]);$('lk').close()};
+    ls.appendChild(d)}
+}
+$('lu').onclick=()=>{$('lk').showModal();$('q').value='';look();$('q').focus()};
+$('q').oninput=look;
+$('xx').onclick=()=>$('lk').close();
+
+$('br').oninput=e=>{R=+e.target.value};
+$('pz').onclick=()=>{paused^=1;$('pz').textContent=paused?'Play':'Pause'};
+$('cl').onclick=()=>{g.fill(0);a.fill(0);T.fill(20)};
+$('sv').onclick=()=>{
+  const r=[];let p=g[0],c=0;
+  for(let i=0;i<g.length;i++){if(g[i]===p&&c<60000)c++;else{r.push(p,c);p=g[i];c=1}}
+  r.push(p,c);
+  try{localStorage.setItem('pb'+$('sl').value,JSON.stringify({W,H,r}));note('Saved to slot '+$('sl').value)}catch(e){note('Save failed')}
+};
+$('ld').onclick=()=>{
+  try{
+    const s=JSON.parse(localStorage.getItem('pb'+$('sl').value));
+    if(!s){note('Slot '+$('sl').value+' is empty');return}
+    const G=new Uint16Array(s.W*s.H);let k=0;
+    for(let q=0;q<s.r.length;q+=2){G.fill(s.r[q],k,k+s.r[q+1]);k+=s.r[q+1]}
+    g.fill(0);a.fill(0);T.fill(20);
+    for(let y=0;y<Math.min(H,s.H);y++)for(let x=0;x<Math.min(W,s.W);x++){
+      const t=G[(s.H-1-y)*s.W+x];if(t)put((H-1-y)*W+x,t);
+    }
+    note('Loaded slot '+$('sl').value);
+  }catch(e){note('Load failed')}
+};
+
+document.querySelector('h1').textContent='Powder Box \u00b7 '+(E.length-1).toLocaleString()+' elements';
+fit();new ResizeObserver(fit).observe(wrap);
+(function loop(){if(down)line(lx,ly,lx,ly);if(!paused)step();draw();requestAnimationFrame(loop)})();
+</script>
+</body>
+</html>
